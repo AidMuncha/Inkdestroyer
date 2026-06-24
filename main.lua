@@ -1141,7 +1141,7 @@ local function isBlacklisted(plr)
     return plr and _G.InkKABlacklist[plr.UserId]==true
 end
 
-local function updateBlacklistStatus()
+_G.InkUpdateBlacklistStatus=function()
     local names={}
     for _,p in ipairs(Players:GetPlayers()) do
         if _G.InkKABlacklist[p.UserId] then names[#names+1]=p.Name end
@@ -1150,7 +1150,7 @@ local function updateBlacklistStatus()
     blStatusLbl.Text=#names>0 and ('Blacklisted: '..table.concat(names,', ')) or 'Blacklisted: none'
 end
 
-local function rebuildBlacklistDropdown()
+_G.InkRebuildBlacklistDropdown=function()
     for _,ch in ipairs(blDrop:GetChildren()) do ch:Destroy() end
     local y=6
     local any=false
@@ -1178,7 +1178,7 @@ local function rebuildBlacklistDropdown()
         l.BackgroundTransparency=1; l.Text='No other players'; l.TextColor3=C.sub
         l.TextSize=10; l.Font=Enum.Font.Gotham
     end
-    updateBlacklistStatus()
+    _G.InkUpdateBlacklistStatus()
 end
 
 posBtn.MouseButton1Click:Connect(function()
@@ -1217,7 +1217,7 @@ makeSliderLogic(predHnd,predTrk,predFill,function(rel)
 end)
 
 blDropBtn.MouseButton1Click:Connect(function()
-    rebuildBlacklistDropdown()
+    _G.InkRebuildBlacklistDropdown()
     blDrop.Visible=not blDrop.Visible
 end)
 
@@ -1225,7 +1225,7 @@ blToggleBtn.MouseButton1Click:Connect(function()
     local selected=_G.InkKASelectedBlacklistPlayer
     if not selected or not selected.Parent then
         blStatusLbl.Text='Pick a player first'
-        rebuildBlacklistDropdown()
+        _G.InkRebuildBlacklistDropdown()
         return
     end
     local id=selected.UserId
@@ -1234,7 +1234,7 @@ blToggleBtn.MouseButton1Click:Connect(function()
         lockedTarget=nil
         tgtLbl.Text='Target: blacklisted  scanning...'
     end
-    rebuildBlacklistDropdown()
+    _G.InkRebuildBlacklistDropdown()
 end)
 
 Players.PlayerRemoving:Connect(function(p)
@@ -1244,7 +1244,7 @@ Players.PlayerRemoving:Connect(function(p)
         blDropBtn.Text='Blacklist Player: select...'
     end
     if lockedTarget==p then lockedTarget=nil end
-    updateBlacklistStatus()
+    _G.InkUpdateBlacklistStatus()
 end)
 
 
