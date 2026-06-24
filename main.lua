@@ -1,9 +1,14 @@
 local Players = game:GetService('Players')
 local RunService = game:GetService('RunService')
 local UserInputService = game:GetService('UserInputService')
+local TweenService = game:GetService('TweenService')
 local PhysicsService = game:GetService('PhysicsService')
 local player = Players.LocalPlayer
 local playerGui = player:FindFirstChildOfClass('PlayerGui') or game:GetService('CoreGui')
+
+_G.InkConnections=_G.InkConnections or {}
+for _,c in ipairs(_G.InkConnections) do pcall(function() c:Disconnect() end) end
+_G.InkConnections={}
 
 for _, ch in ipairs(playerGui:GetChildren()) do
     if ch.Name=='MultiTabControlPanel' or ch.Name=='InkDestroyerGui' or ch.Name=='SpeedSliderGui' then ch:Destroy() end
@@ -132,8 +137,8 @@ minBtn.MouseButton1Click:Connect(function()
     minBtn.Text=minimized and '+' or '-'
 end)
 
--- TAB ORDER: RLGL, Dalgona, Glass Bridge, Hide and Seek, Jump Rope, Combat, Troll, Misc (Misc always last)
-local rlglC=makeC('RLGL',true); local dalC=makeC('Dal',false); local glassC=makeC('Glass',false)
+-- TAB ORDER: RLGL, Glass Bridge, Hide and Seek, Jump Rope, Combat, Troll, Misc (Misc always last)
+local rlglC=makeC('RLGL',true); local glassC=makeC('Glass',false)
 local hideC=makeC('HideSeek',false); local jumpC=makeC('JumpRope',false); local combatC=makeC('Combat',false); local trollC=makeC('Troll',false); local miscC=makeC('Misc',false)
 
 local function mkTab(name,sel)
@@ -144,15 +149,14 @@ local function mkTab(name,sel)
     return b
 end
 local btnRLGL   = mkTab('RLGL',true)
-local btnDal    = mkTab('Dalgona',false)
 local btnGlass  = mkTab('Glass Bridge',false)
 local btnHide   = mkTab('Hide and Seek',false)
 local btnJump   = mkTab('Jump Rope',false)
 local btnCombat = mkTab('Combat',false)
 local btnTroll  = mkTab('Troll',false)
 local btnMisc   = mkTab('Misc',false)  -- ALWAYS LAST
-local TABS={btnRLGL,btnDal,btnGlass,btnHide,btnJump,btnCombat,btnTroll,btnMisc}
-local CTRS={rlglC,dalC,glassC,hideC,jumpC,combatC,trollC,miscC}
+local TABS={btnRLGL,btnGlass,btnHide,btnJump,btnCombat,btnTroll,btnMisc}
+local CTRS={rlglC,glassC,hideC,jumpC,combatC,trollC,miscC}
 local function showTab(idx)
     for i=1,#TABS do
         TABS[i].BackgroundColor3=(i==idx) and C.tabSel or C.tabDef
@@ -177,15 +181,6 @@ local routeSpeedRel=(routeSpeed-routeSpeedMin)/(routeSpeedMax-routeSpeedMin)
 routeSpeedHnd.Position=UDim2.new(routeSpeedRel,-7,0.5,-7); routeSpeedFill.Size=UDim2.new(routeSpeedRel,0,1,0)
 local instantRoute=false
 local instantRouteBtn=mkBtn(rlglC,'Instant Route: OFF',188,30); instantRouteBtn.TextColor3=C.off
-
--- ===== DALGONA =====
-mkHdr(dalC,'Dalgona Cutter',2)
-local dalTypeLbl=mkLbl(dalC,'Shape: detecting...',24,16,11,C.acc)
-local dalBBoxLbl=mkLbl(dalC,'',42,14,10)
-local atBtn=mkBtn(dalC,'Auto-Trace: OFF',60,32); atBtn.TextColor3=C.off
-local dalStatusLbl=mkLbl(dalC,'Status: idle',98,16,11)
-mkDiv(dalC,118)
-local dalRefreshBtn=mkBtn(dalC,'Re-detect Shape',124,26); dalRefreshBtn.TextSize=11
 
 -- ===== GLASS =====
 mkHdr(glassC,'Glass Bridge ESP',2)
@@ -250,9 +245,11 @@ _G.InkOrbit.guardKeyBtn=mkBtn(trollC,'Guard Key: [ G ]',64,26); _G.InkOrbit.guar
 local orbitPlayerBtn=mkBtn(trollC,'Orbit Player: OFF',98,32); orbitPlayerBtn.TextColor3=C.off
 _G.InkOrbit.playerKeyBtn=mkBtn(trollC,'Player Key: [ H ]',136,26); _G.InkOrbit.playerKeyBtn.TextColor3=C.sub; _G.InkOrbit.playerKeyBtn.TextSize=11
 mkDiv(trollC,170)
-_G.InkOrbit.speedLbl=mkLbl(trollC,'Orbit Speed: 2.5',176,16,11,C.sub)
+_G.InkOrbit.speedLbl=mkLbl(trollC,'Orbit Speed: 60 studs/s',176,16,11,C.sub)
 _G.InkOrbit.speedTrk,_G.InkOrbit.speedFill,_G.InkOrbit.speedHnd=mkSlider(trollC,196)
-local orbitStatusLbl=mkLbl(trollC,'Targets nearest guard/player',216,16,10)
+_G.InkOrbit.rangeLbl=mkLbl(trollC,'Target Range: 80 studs',218,16,11,C.sub)
+_G.InkOrbit.rangeTrk,_G.InkOrbit.rangeFill,_G.InkOrbit.rangeHnd=mkSlider(trollC,238)
+local orbitStatusLbl=mkLbl(trollC,'Locks onto player guards only',258,16,10)
 -- ===== MISC (ALWAYS LAST TAB) =====
 mkHdr(miscC,'Utilities',2)
 local stBtn=mkBtn(miscC,'Stamina Bypass: OFF',24,30); stBtn.TextColor3=C.off
@@ -377,88 +374,6 @@ tpBtn.MouseButton1Click:Connect(function()
         routeRunning=false
     end)
 end)
-
--- Dalgona shape detection
-local SHAPE_NAMES={
-    [2]='Star / Umbrella', [3]='Triangle', [4]='Square', [5]='Circle',
-    [6]='Sack Boy / Complex', [7]='Star', [8]='Umbrella', [9]='Honeycomb'
-}
-local function detectDal()
-    local sw2=workspace:FindFirstChild('StairWalkWay')
-    local cp2=sw2 and sw2:FindFirstChild('CheckpointsREWORK'); if not cp2 then return 'Not in stage','','' end
-    for _,v in ipairs(cp2:GetChildren()) do
-        if v.Name:lower():find('dalgona') and v:FindFirstChild('Models') then
-            local m=v:FindFirstChild('Models'):FindFirstChildOfClass('Model')
-            if m then
-                local minX,maxX,minZ,maxZ=math.huge,-math.huge,math.huge,-math.huge
-                local borderCount,totalParts=0,0
-                for _,p in ipairs(m:GetDescendants()) do
-                    if p:IsA('BasePart') then
-                        totalParts=totalParts+1
-                        minX=math.min(minX,p.Position.X); maxX=math.max(maxX,p.Position.X)
-                        minZ=math.min(minZ,p.Position.Z); maxZ=math.max(maxZ,p.Position.Z)
-                        if p.Size.Y>1 then borderCount=borderCount+1 end
-                    end
-                end
-                local w=math.floor((maxX-minX)*10+0.5)/10
-                local d=math.floor((maxZ-minZ)*10+0.5)/10
-                local guess=SHAPE_NAMES[borderCount] or ('Unknown ('..borderCount..' segs)')
-                return guess, 'W:'..w..' D:'..d, totalParts..' parts / '..borderCount..' border segs'
-            end
-        end
-    end
-    return 'None found','',''
-end
-local function refreshDal()
-    local name,bbox,detail=detectDal()
-    dalTypeLbl.Text='Shape: '..name
-    dalBBoxLbl.Text=detail
-end
-refreshDal()
-dalRefreshBtn.MouseButton1Click:Connect(refreshDal)
-
--- Dalgona trace toggle
-local dalOn=false; local dalThread=nil
-local function getDalWP()
-    local sw2=workspace:FindFirstChild('StairWalkWay')
-    local cp2=sw2 and sw2:FindFirstChild('CheckpointsREWORK'); if not cp2 then return nil end
-    local dal2; for _,v in ipairs(cp2:GetChildren()) do if v.Name:lower():find('dalgona') and v:FindFirstChild('Models') then dal2=v; break end end
-    if not dal2 then return nil end
-    local model=dal2:FindFirstChild('Models'):FindFirstChildOfClass('Model'); if not model then return nil end
-    local minX,maxX,minZ,maxZ=math.huge,-math.huge,math.huge,-math.huge; local surfY
-    for _,v in ipairs(model:GetChildren()) do
-        if v:IsA('BasePart') and v.Size.Y>1 then
-            minX=math.min(minX,v.Position.X-v.Size.X/2); maxX=math.max(maxX,v.Position.X+v.Size.X/2)
-            minZ=math.min(minZ,v.Position.Z-v.Size.Z/2); maxZ=math.max(maxZ,v.Position.Z+v.Size.Z/2)
-            surfY=v.Position.Y+v.Size.Y/2+1.5
-        end
-    end
-    local x1,x2=minX+0.4,maxX-0.4; local z1,z2=minZ+0.4,maxZ-0.4; local y=surfY or 0
-    local steps=18; local wp={}
-    local function addEdge(ax,az,bx,bz) for s=0,steps do local t=s/steps; wp[#wp+1]=Vector3.new(ax+(bx-ax)*t,y,az+(bz-az)*t) end end
-    addEdge(x1,z1,x2,z1); addEdge(x2,z1,x2,z2); addEdge(x2,z2,x1,z2); addEdge(x1,z2,x1,z1)
-    return wp
-end
-local function stopDal() dalOn=false; setToggle(atBtn,false,'Auto-Trace'); dalStatusLbl.Text='Status: idle'; if dalThread then task.cancel(dalThread); dalThread=nil end end
-local function startDal()
-    dalOn=true; setToggle(atBtn,true,'Auto-Trace'); refreshDal()
-    dalThread=task.spawn(function()
-        local wp=getDalWP(); if not wp then dalStatusLbl.Text='No shape found'; stopDal(); return end
-        dalStatusLbl.Text='Status: tracing...'; local idx=1
-        while dalOn and sg.Parent do
-            local c=player.Character; local hrp=c and c:FindFirstChild('HumanoidRootPart')
-            if hrp then
-                local dest=wp[idx]
-                if (hrp.Position-dest).Magnitude<1.5 then
-                    idx=idx+1
-                    if idx>#wp then dalStatusLbl.Text='Loop complete, restarting'; task.wait(0.15); idx=1; dalStatusLbl.Text='Status: tracing...' end
-                else hrp.CFrame=CFrame.new(dest)*CFrame.Angles(0,select(2,hrp.CFrame:ToEulerAnglesYXZ()),0) end
-            end
-            task.wait(0.05)
-        end
-    end)
-end
-atBtn.MouseButton1Click:Connect(function() if dalOn then stopDal() else startDal() end end)
 
 -- Glass Bridge ESP
 local espOn=false; local espHL={}
@@ -1251,11 +1166,17 @@ end)
 
 
 -- Troll orbit tools
-_G.InkOrbit.guardOn=false; _G.InkOrbit.playerOn=false; _G.InkOrbit.guardKey=Enum.KeyCode.G; _G.InkOrbit.playerKey=Enum.KeyCode.H; _G.InkOrbit.guardBind=false; _G.InkOrbit.playerBind=false; _G.InkOrbit.speed=2.5; _G.InkOrbit.min=0.5; _G.InkOrbit.max=8.0; _G.InkOrbit.radius=8; _G.InkOrbit.angle=0
+_G.InkOrbit.guardOn=false; _G.InkOrbit.playerOn=false; _G.InkOrbit.guardKey=Enum.KeyCode.G; _G.InkOrbit.playerKey=Enum.KeyCode.H; _G.InkOrbit.guardBind=false; _G.InkOrbit.playerBind=false; _G.InkOrbit.speed=60; _G.InkOrbit.min=5; _G.InkOrbit.max=200; _G.InkOrbit.radius=8; _G.InkOrbit.range=80; _G.InkOrbit.rangeMin=10; _G.InkOrbit.rangeMax=250; _G.InkOrbit.angle=0; _G.InkOrbit.lockPlayer=nil; _G.InkOrbit.lockRoot=nil; _G.InkOrbit.tween=nil
 _G.InkOrbit.speedHnd.Position=UDim2.new((_G.InkOrbit.speed-_G.InkOrbit.min)/(_G.InkOrbit.max-_G.InkOrbit.min),-7,0.5,-7); _G.InkOrbit.speedFill.Size=UDim2.new((_G.InkOrbit.speed-_G.InkOrbit.min)/(_G.InkOrbit.max-_G.InkOrbit.min),0,1,0)
 makeSliderLogic(_G.InkOrbit.speedHnd,_G.InkOrbit.speedTrk,_G.InkOrbit.speedFill,function(rel)
     _G.InkOrbit.speed=math.floor((_G.InkOrbit.min+rel*(_G.InkOrbit.max-_G.InkOrbit.min))*10+0.5)/10
-    _G.InkOrbit.speedLbl.Text='Orbit Speed: '..string.format('%.1f',_G.InkOrbit.speed)
+    _G.InkOrbit.speedLbl.Text='Orbit Speed: '..math.floor(_G.InkOrbit.speed+0.5)..' studs/s'
+end)
+_G.InkOrbit.rangeHnd.Position=UDim2.new((_G.InkOrbit.range-_G.InkOrbit.rangeMin)/(_G.InkOrbit.rangeMax-_G.InkOrbit.rangeMin),-7,0.5,-7); _G.InkOrbit.rangeFill.Size=UDim2.new((_G.InkOrbit.range-_G.InkOrbit.rangeMin)/(_G.InkOrbit.rangeMax-_G.InkOrbit.rangeMin),0,1,0)
+makeSliderLogic(_G.InkOrbit.rangeHnd,_G.InkOrbit.rangeTrk,_G.InkOrbit.rangeFill,function(rel)
+    _G.InkOrbit.range=math.floor(_G.InkOrbit.rangeMin+rel*(_G.InkOrbit.rangeMax-_G.InkOrbit.rangeMin)+0.5)
+    _G.InkOrbit.rangeLbl.Text='Target Range: '.._G.InkOrbit.range..' studs'
+    _G.InkOrbit.lockPlayer=nil; _G.InkOrbit.lockRoot=nil
 end)
 
 local function orbitAlivePlayer(plr)
@@ -1265,59 +1186,54 @@ local function orbitAlivePlayer(plr)
     return h and h.Health>0 and hrp and h:GetState()~=Enum.HumanoidStateType.Dead
 end
 
-local function getModelRoot(model)
-    if not model then return nil end
-    return model:FindFirstChild('HumanoidRootPart') or model.PrimaryPart or model:FindFirstChildWhichIsA('BasePart')
+
+local function isOrbitPlayerGuard(plr)
+    if not orbitAlivePlayer(plr) then return false end
+    if plr:GetAttribute('IsGuard')==true or plr:GetAttribute('DisplayingGuardUI')==true then return true end
+    if plr:GetAttribute('__OwnsPermGuard')==true and plr:GetAttribute('CanReturnToGuardMenu')==true then return true end
+    local c=plr.Character
+    if c and (c:GetAttribute('IsGuard')==true or c:GetAttribute('DisplayingGuardUI')==true) then return true end
+    local role=getHideSeekRole(plr)
+    if role=='SEEKER' then return true end
+    local t=plr.Team and plr.Team.Name:lower() or ''
+    return t:find('guard')~=nil or t:find('seeker')~=nil
 end
 
-local function looksLikeOrbitGuard(model)
-    if not model or not model:IsA('Model') or Players:GetPlayerFromCharacter(model) then return false end
-    local n=model.Name:lower()
-    if n:find('guard') or n:find('soldier') or n:find('worker') or n:find('manager') or n:find('masked') then return getModelRoot(model)~=nil end
-    if model:FindFirstChildOfClass('Humanoid') then
-        for _,d in ipairs(model:GetDescendants()) do
-            local dn=d.Name:lower()
-            if dn:find('guard') or dn:find('triangle') or dn:find('square') or dn:find('circle') then return getModelRoot(model)~=nil end
-        end
-    end
-    return false
+local function validOrbitLock(plr,fromPos,guardOnly)
+    if not plr or not plr.Parent then return nil,nil end
+    if guardOnly and not isOrbitPlayerGuard(plr) then return nil,nil end
+    if (not guardOnly) and not orbitAlivePlayer(plr) then return nil,nil end
+    local root=plr.Character and plr.Character:FindFirstChild('HumanoidRootPart')
+    if not root then return nil,nil end
+    local dist=(root.Position-fromPos).Magnitude
+    if dist>_G.InkOrbit.range then return nil,nil end
+    return root,dist
 end
 
-local function nearestGuard(fromPos)
-    local best,bDist=nil,math.huge
-    for _,d in ipairs(workspace:GetDescendants()) do
-        if looksLikeOrbitGuard(d) then
-            local root=getModelRoot(d)
-            if root then
-                local dist=(root.Position-fromPos).Magnitude
-                if dist<bDist then best=root; bDist=dist end
-            end
-        end
-    end
-    return best,bDist
-end
-
-local function nearestOrbitPlayer(fromPos)
-    local best,bDist=nil,math.huge
+local function nearestOrbitPlayer(fromPos,guardOnly)
+    local root,dist=validOrbitLock(_G.InkOrbit.lockPlayer,fromPos,guardOnly)
+    if root then return root,dist end
+    _G.InkOrbit.lockPlayer=nil; _G.InkOrbit.lockRoot=nil
+    local best,bDist,bPlr=nil,math.huge,nil
     for _,p in ipairs(Players:GetPlayers()) do
-        if p~=player and orbitAlivePlayer(p) then
-            local root=p.Character and p.Character:FindFirstChild('HumanoidRootPart')
-            local dist=(root.Position-fromPos).Magnitude
-            if dist<bDist then best=root; bDist=dist end
+        if p~=player then
+            local r,d=validOrbitLock(p,fromPos,guardOnly)
+            if r and d<bDist then best=r; bDist=d; bPlr=p end
         end
     end
+    _G.InkOrbit.lockPlayer=bPlr; _G.InkOrbit.lockRoot=best
     return best,bDist
 end
 
 local function setOrbitGuard(state)
     _G.InkOrbit.guardOn=state
-    if state then _G.InkOrbit.playerOn=false; setToggle(orbitPlayerBtn,false,'Orbit Player') end
+    if state then _G.InkOrbit.playerOn=false; _G.InkOrbit.lockPlayer=nil; _G.InkOrbit.lockRoot=nil; setToggle(orbitPlayerBtn,false,'Orbit Player') end
     setToggle(orbitGuardBtn,_G.InkOrbit.guardOn,'Orbit Guard')
 end
 
 local function setOrbitPlayer(state)
     _G.InkOrbit.playerOn=state
-    if state then _G.InkOrbit.guardOn=false; setToggle(orbitGuardBtn,false,'Orbit Guard') end
+    if state then _G.InkOrbit.guardOn=false; _G.InkOrbit.lockPlayer=nil; _G.InkOrbit.lockRoot=nil; setToggle(orbitGuardBtn,false,'Orbit Guard') end
     setToggle(orbitPlayerBtn,_G.InkOrbit.playerOn,'Orbit Player')
 end
 
@@ -1334,23 +1250,43 @@ _G.InkOrbit.playerKeyBtn.MouseButton1Click:Connect(function()
     _G.InkOrbit.playerKeyBtn.TextColor3=Color3.fromRGB(255,200,0)
 end)
 
-RunService.RenderStepped:Connect(function(dt)
-    if not sg.Parent then return end
+_G.InkOrbit.stepAccum=0; _G.InkOrbit.statusAccum=0
+if _G.InkOrbit.conn then pcall(function() _G.InkOrbit.conn:Disconnect() end) end
+if _G.InkOrbit.tween then pcall(function() _G.InkOrbit.tween:Cancel() end); _G.InkOrbit.tween=nil end
+_G.InkOrbit.conn=RunService.Heartbeat:Connect(function(dt)
+    if not sg.Parent then pcall(function() _G.InkOrbit.conn:Disconnect() end); return end
     if not _G.InkOrbit.guardOn and not _G.InkOrbit.playerOn then return end
+    _G.InkOrbit.stepAccum=(_G.InkOrbit.stepAccum or 0)+dt
+    if _G.InkOrbit.stepAccum<0.12 then return end
+    dt=_G.InkOrbit.stepAccum; _G.InkOrbit.stepAccum=0
     local c=player.Character; local hrp=c and c:FindFirstChild('HumanoidRootPart')
     if not hrp then return end
     local target,dist
-    if _G.InkOrbit.guardOn then target,dist=nearestGuard(hrp.Position) else target,dist=nearestOrbitPlayer(hrp.Position) end
+    if _G.InkOrbit.guardOn then target,dist=nearestOrbitPlayer(hrp.Position,true) else target,dist=nearestOrbitPlayer(hrp.Position,false) end
     if not target then
-        orbitStatusLbl.Text=_G.InkOrbit.guardOn and 'No guard found' or 'No alive player found'
+        _G.InkOrbit.statusAccum=(_G.InkOrbit.statusAccum or 0)+dt
+        if _G.InkOrbit.statusAccum>0.35 then
+            orbitStatusLbl.Text=_G.InkOrbit.guardOn and 'No player guard in range' or 'No alive player in range'
+            _G.InkOrbit.statusAccum=0
+        end
         return
     end
-    _G.InkOrbit.angle=_G.InkOrbit.angle+(dt*_G.InkOrbit.speed)
+    _G.InkOrbit.angle=_G.InkOrbit.angle+(dt*(_G.InkOrbit.speed/math.max(_G.InkOrbit.radius,1)))
     local offset=Vector3.new(math.cos(_G.InkOrbit.angle)*_G.InkOrbit.radius,0,math.sin(_G.InkOrbit.angle)*_G.InkOrbit.radius)
     local pos=target.Position+offset
-    hrp.CFrame=CFrame.lookAt(pos,Vector3.new(target.Position.X,pos.Y,target.Position.Z))
-    orbitStatusLbl.Text=(_G.InkOrbit.guardOn and 'Orbiting guard' or 'Orbiting player')..' | '..math.floor(dist)..' studs'
+    local cf=CFrame.lookAt(pos,Vector3.new(target.Position.X,pos.Y,target.Position.Z))
+    local moveTime=math.clamp((hrp.Position-pos).Magnitude/math.max(_G.InkOrbit.speed,1),0.05,0.28)
+    if _G.InkOrbit.tween then pcall(function() _G.InkOrbit.tween:Cancel() end) end
+    hrp.AssemblyLinearVelocity=Vector3.zero; hrp.AssemblyAngularVelocity=Vector3.zero
+    _G.InkOrbit.tween=TweenService:Create(hrp,TweenInfo.new(moveTime,Enum.EasingStyle.Linear,Enum.EasingDirection.Out),{CFrame=cf})
+    _G.InkOrbit.tween:Play()
+    _G.InkOrbit.statusAccum=(_G.InkOrbit.statusAccum or 0)+dt
+    if _G.InkOrbit.statusAccum>0.25 then
+        orbitStatusLbl.Text=(_G.InkOrbit.guardOn and 'Locked player guard' or 'Locked player')..' | '..(_G.InkOrbit.lockPlayer and _G.InkOrbit.lockPlayer.Name or 'target')..' | '..math.floor(dist)..' studs'
+        _G.InkOrbit.statusAccum=0
+    end
 end)
+table.insert(_G.InkConnections,_G.InkOrbit.conn)
 local rc=Instance.new('Part'); rc.Name='KillAuraRangeCircle'; rc.Shape=Enum.PartType.Cylinder
 rc.Anchored=true; rc.CanCollide=false; rc.CastShadow=false
 rc.Material=Enum.Material.Neon; rc.Color=Color3.fromRGB(255,40,40)
