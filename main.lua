@@ -243,14 +243,15 @@ blDrop.Size=UDim2.new(1,-20,0,150); blDrop.Position=UDim2.new(0,10,0,488)
 blDrop.BackgroundColor3=C.dark; blDrop.BorderSizePixel=0; blDrop.Visible=false; corner(blDrop,7)
 
 -- ===== TROLL =====
+_G.InkOrbit=_G.InkOrbit or {}
 mkHdr(trollC,'Orbit Troll',2)
 local orbitGuardBtn=mkBtn(trollC,'Orbit Guard: OFF',26,32); orbitGuardBtn.TextColor3=C.off
-local orbitGuardKeyBtn=mkBtn(trollC,'Guard Key: [ G ]',64,26); orbitGuardKeyBtn.TextColor3=C.sub; orbitGuardKeyBtn.TextSize=11
+_G.InkOrbit.guardKeyBtn=mkBtn(trollC,'Guard Key: [ G ]',64,26); _G.InkOrbit.guardKeyBtn.TextColor3=C.sub; _G.InkOrbit.guardKeyBtn.TextSize=11
 local orbitPlayerBtn=mkBtn(trollC,'Orbit Player: OFF',98,32); orbitPlayerBtn.TextColor3=C.off
-local orbitPlayerKeyBtn=mkBtn(trollC,'Player Key: [ H ]',136,26); orbitPlayerKeyBtn.TextColor3=C.sub; orbitPlayerKeyBtn.TextSize=11
+_G.InkOrbit.playerKeyBtn=mkBtn(trollC,'Player Key: [ H ]',136,26); _G.InkOrbit.playerKeyBtn.TextColor3=C.sub; _G.InkOrbit.playerKeyBtn.TextSize=11
 mkDiv(trollC,170)
-local orbitSpeedLbl=mkLbl(trollC,'Orbit Speed: 2.5',176,16,11,C.sub)
-local orbitSpeedTrk,orbitSpeedFill,orbitSpeedHnd=mkSlider(trollC,196)
+_G.InkOrbit.speedLbl=mkLbl(trollC,'Orbit Speed: 2.5',176,16,11,C.sub)
+_G.InkOrbit.speedTrk,_G.InkOrbit.speedFill,_G.InkOrbit.speedHnd=mkSlider(trollC,196)
 local orbitStatusLbl=mkLbl(trollC,'Targets nearest guard/player',216,16,10)
 -- ===== MISC (ALWAYS LAST TAB) =====
 mkHdr(miscC,'Utilities',2)
@@ -1250,22 +1251,11 @@ end)
 
 
 -- Troll orbit tools
-local orbitGuardOn=false
-local orbitPlayerOn=false
-local orbitGuardKey=Enum.KeyCode.G
-local orbitPlayerKey=Enum.KeyCode.H
-local orbitGuardBindMode=false
-local orbitPlayerBindMode=false
-local orbitSpeed=2.5
-local orbitMin,orbitMax=0.5,8.0
-local orbitRadius=8
-local orbitAngle=0
-
-local orbitRel=(orbitSpeed-orbitMin)/(orbitMax-orbitMin)
-orbitSpeedHnd.Position=UDim2.new(orbitRel,-7,0.5,-7); orbitSpeedFill.Size=UDim2.new(orbitRel,0,1,0)
-makeSliderLogic(orbitSpeedHnd,orbitSpeedTrk,orbitSpeedFill,function(rel)
-    orbitSpeed=math.floor((orbitMin+rel*(orbitMax-orbitMin))*10+0.5)/10
-    orbitSpeedLbl.Text='Orbit Speed: '..string.format('%.1f',orbitSpeed)
+_G.InkOrbit.guardOn=false; _G.InkOrbit.playerOn=false; _G.InkOrbit.guardKey=Enum.KeyCode.G; _G.InkOrbit.playerKey=Enum.KeyCode.H; _G.InkOrbit.guardBind=false; _G.InkOrbit.playerBind=false; _G.InkOrbit.speed=2.5; _G.InkOrbit.min=0.5; _G.InkOrbit.max=8.0; _G.InkOrbit.radius=8; _G.InkOrbit.angle=0
+_G.InkOrbit.speedHnd.Position=UDim2.new((_G.InkOrbit.speed-_G.InkOrbit.min)/(_G.InkOrbit.max-_G.InkOrbit.min),-7,0.5,-7); _G.InkOrbit.speedFill.Size=UDim2.new((_G.InkOrbit.speed-_G.InkOrbit.min)/(_G.InkOrbit.max-_G.InkOrbit.min),0,1,0)
+makeSliderLogic(_G.InkOrbit.speedHnd,_G.InkOrbit.speedTrk,_G.InkOrbit.speedFill,function(rel)
+    _G.InkOrbit.speed=math.floor((_G.InkOrbit.min+rel*(_G.InkOrbit.max-_G.InkOrbit.min))*10+0.5)/10
+    _G.InkOrbit.speedLbl.Text='Orbit Speed: '..string.format('%.1f',_G.InkOrbit.speed)
 end)
 
 local function orbitAlivePlayer(plr)
@@ -1320,46 +1310,46 @@ local function nearestOrbitPlayer(fromPos)
 end
 
 local function setOrbitGuard(state)
-    orbitGuardOn=state
-    if state then orbitPlayerOn=false; setToggle(orbitPlayerBtn,false,'Orbit Player') end
-    setToggle(orbitGuardBtn,orbitGuardOn,'Orbit Guard')
+    _G.InkOrbit.guardOn=state
+    if state then _G.InkOrbit.playerOn=false; setToggle(orbitPlayerBtn,false,'Orbit Player') end
+    setToggle(orbitGuardBtn,_G.InkOrbit.guardOn,'Orbit Guard')
 end
 
 local function setOrbitPlayer(state)
-    orbitPlayerOn=state
-    if state then orbitGuardOn=false; setToggle(orbitGuardBtn,false,'Orbit Guard') end
-    setToggle(orbitPlayerBtn,orbitPlayerOn,'Orbit Player')
+    _G.InkOrbit.playerOn=state
+    if state then _G.InkOrbit.guardOn=false; setToggle(orbitGuardBtn,false,'Orbit Guard') end
+    setToggle(orbitPlayerBtn,_G.InkOrbit.playerOn,'Orbit Player')
 end
 
-orbitGuardBtn.MouseButton1Click:Connect(function() setOrbitGuard(not orbitGuardOn) end)
-orbitPlayerBtn.MouseButton1Click:Connect(function() setOrbitPlayer(not orbitPlayerOn) end)
-orbitGuardKeyBtn.MouseButton1Click:Connect(function()
-    orbitGuardBindMode=true
-    orbitGuardKeyBtn.Text='Press any key...'
-    orbitGuardKeyBtn.TextColor3=Color3.fromRGB(255,200,0)
+orbitGuardBtn.MouseButton1Click:Connect(function() setOrbitGuard(not _G.InkOrbit.guardOn) end)
+orbitPlayerBtn.MouseButton1Click:Connect(function() setOrbitPlayer(not _G.InkOrbit.playerOn) end)
+_G.InkOrbit.guardKeyBtn.MouseButton1Click:Connect(function()
+    _G.InkOrbit.guardBind=true
+    _G.InkOrbit.guardKeyBtn.Text='Press any key...'
+    _G.InkOrbit.guardKeyBtn.TextColor3=Color3.fromRGB(255,200,0)
 end)
-orbitPlayerKeyBtn.MouseButton1Click:Connect(function()
-    orbitPlayerBindMode=true
-    orbitPlayerKeyBtn.Text='Press any key...'
-    orbitPlayerKeyBtn.TextColor3=Color3.fromRGB(255,200,0)
+_G.InkOrbit.playerKeyBtn.MouseButton1Click:Connect(function()
+    _G.InkOrbit.playerBind=true
+    _G.InkOrbit.playerKeyBtn.Text='Press any key...'
+    _G.InkOrbit.playerKeyBtn.TextColor3=Color3.fromRGB(255,200,0)
 end)
 
 RunService.RenderStepped:Connect(function(dt)
     if not sg.Parent then return end
-    if not orbitGuardOn and not orbitPlayerOn then return end
+    if not _G.InkOrbit.guardOn and not _G.InkOrbit.playerOn then return end
     local c=player.Character; local hrp=c and c:FindFirstChild('HumanoidRootPart')
     if not hrp then return end
     local target,dist
-    if orbitGuardOn then target,dist=nearestGuard(hrp.Position) else target,dist=nearestOrbitPlayer(hrp.Position) end
+    if _G.InkOrbit.guardOn then target,dist=nearestGuard(hrp.Position) else target,dist=nearestOrbitPlayer(hrp.Position) end
     if not target then
-        orbitStatusLbl.Text=orbitGuardOn and 'No guard found' or 'No alive player found'
+        orbitStatusLbl.Text=_G.InkOrbit.guardOn and 'No guard found' or 'No alive player found'
         return
     end
-    orbitAngle=orbitAngle+(dt*orbitSpeed)
-    local offset=Vector3.new(math.cos(orbitAngle)*orbitRadius,0,math.sin(orbitAngle)*orbitRadius)
+    _G.InkOrbit.angle=_G.InkOrbit.angle+(dt*_G.InkOrbit.speed)
+    local offset=Vector3.new(math.cos(_G.InkOrbit.angle)*_G.InkOrbit.radius,0,math.sin(_G.InkOrbit.angle)*_G.InkOrbit.radius)
     local pos=target.Position+offset
     hrp.CFrame=CFrame.lookAt(pos,Vector3.new(target.Position.X,pos.Y,target.Position.Z))
-    orbitStatusLbl.Text=(orbitGuardOn and 'Orbiting guard' or 'Orbiting player')..' | '..math.floor(dist)..' studs'
+    orbitStatusLbl.Text=(_G.InkOrbit.guardOn and 'Orbiting guard' or 'Orbiting player')..' | '..math.floor(dist)..' studs'
 end)
 local rc=Instance.new('Part'); rc.Name='KillAuraRangeCircle'; rc.Shape=Enum.PartType.Cylinder
 rc.Anchored=true; rc.CanCollide=false; rc.CastShadow=false
@@ -1385,22 +1375,22 @@ UserInputService.InputBegan:Connect(function(inp,gpe)
         kbBtn.Text='Toggle Key: [ '..tostring(inp.KeyCode):gsub('Enum.KeyCode.','')..' ]'
         kbBtn.TextColor3=C.sub; kaBindMode=false; return
     end
-    if orbitGuardBindMode and inp.UserInputType==Enum.UserInputType.Keyboard then
-        orbitGuardKey=inp.KeyCode
-        orbitGuardKeyBtn.Text='Guard Key: [ '..tostring(inp.KeyCode):gsub('Enum.KeyCode.','')..' ]'
-        orbitGuardKeyBtn.TextColor3=C.sub; orbitGuardBindMode=false; return
+    if _G.InkOrbit.guardBind and inp.UserInputType==Enum.UserInputType.Keyboard then
+        _G.InkOrbit.guardKey=inp.KeyCode
+        _G.InkOrbit.guardKeyBtn.Text='Guard Key: [ '..tostring(inp.KeyCode):gsub('Enum.KeyCode.','')..' ]'
+        _G.InkOrbit.guardKeyBtn.TextColor3=C.sub; _G.InkOrbit.guardBind=false; return
     end
-    if orbitPlayerBindMode and inp.UserInputType==Enum.UserInputType.Keyboard then
-        orbitPlayerKey=inp.KeyCode
-        orbitPlayerKeyBtn.Text='Player Key: [ '..tostring(inp.KeyCode):gsub('Enum.KeyCode.','')..' ]'
-        orbitPlayerKeyBtn.TextColor3=C.sub; orbitPlayerBindMode=false; return
+    if _G.InkOrbit.playerBind and inp.UserInputType==Enum.UserInputType.Keyboard then
+        _G.InkOrbit.playerKey=inp.KeyCode
+        _G.InkOrbit.playerKeyBtn.Text='Player Key: [ '..tostring(inp.KeyCode):gsub('Enum.KeyCode.','')..' ]'
+        _G.InkOrbit.playerKeyBtn.TextColor3=C.sub; _G.InkOrbit.playerBind=false; return
     end
     if gpe then return end
     if inp.UserInputType==Enum.UserInputType.Keyboard then
         if inp.KeyCode==guiKey then guiVisible=not guiVisible; mf.Visible=guiVisible end
         if inp.KeyCode==kaKey then setKA(not kaOn) end
-        if inp.KeyCode==orbitGuardKey then setOrbitGuard(not orbitGuardOn) end
-        if inp.KeyCode==orbitPlayerKey then setOrbitPlayer(not orbitPlayerOn) end
+        if inp.KeyCode==_G.InkOrbit.guardKey then setOrbitGuard(not _G.InkOrbit.guardOn) end
+        if inp.KeyCode==_G.InkOrbit.playerKey then setOrbitPlayer(not _G.InkOrbit.playerOn) end
     end
 end)
 
