@@ -1042,6 +1042,7 @@ task.spawn(function() while task.wait(0.75) do
     if _G.InkJR.platformOn then _G.InkUpdateJumpPlatform() end
 end end)
 -- =========== HITBOX EXPANDER ===========
+do
 local hbOn=false
 local origSizes={} -- part -> originalSize
 local EXPAND=1.45  -- 45% size increase, subtle but noticeable
@@ -1117,6 +1118,7 @@ task.spawn(function() while task.wait(0.25) do
 end end)
 
 player.CharacterRemoving:Connect(function() disableHitbox() end)
+end
 -- =========== KILL AURA ===========
 local kaOn=false; local kaKey=Enum.KeyCode.F; local kaBindMode=false
 local kaRange=20; local rnDrag=false; local rnMin,rnMax=5,100
@@ -1209,8 +1211,7 @@ makeSliderLogic(rnHnd,rnTrk,rnFill,function(rel)
     kaRange=math.round(rnMin+rel*(rnMax-rnMin))
     rnLbl.Text='Range: '..kaRange..' studs'
 end)
-local predRel=(PREDICT_STRENGTH-PREDICT_STRENGTH_MIN)/(PREDICT_STRENGTH_MAX-PREDICT_STRENGTH_MIN)
-predHnd.Position=UDim2.new(predRel,-7,0.5,-7); predFill.Size=UDim2.new(predRel,0,1,0)
+predHnd.Position=UDim2.new((PREDICT_STRENGTH-PREDICT_STRENGTH_MIN)/(PREDICT_STRENGTH_MAX-PREDICT_STRENGTH_MIN),-7,0.5,-7); predFill.Size=UDim2.new((PREDICT_STRENGTH-PREDICT_STRENGTH_MIN)/(PREDICT_STRENGTH_MAX-PREDICT_STRENGTH_MIN),0,1,0)
 makeSliderLogic(predHnd,predTrk,predFill,function(rel)
     PREDICT_STRENGTH=math.floor((PREDICT_STRENGTH_MIN+rel*(PREDICT_STRENGTH_MAX-PREDICT_STRENGTH_MIN))*100+0.5)/100
     predLbl.Text='Prediction Lead: '..string.format('%.2f',PREDICT_STRENGTH)..'x'
